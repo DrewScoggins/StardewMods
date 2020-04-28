@@ -63,10 +63,21 @@ namespace Pathoschild.Stardew.ChestsAnywhere
             helper.Events.GameLoop.UpdateTicking += this.OnUpdateTicking;
             helper.Events.Display.RenderedHud += this.OnRenderedHud;
             helper.Events.Input.ButtonPressed += this.OnButtonPressed;
+            helper.Events.GameLoop.OneSecondUpdateTicked += this.OnOneSecondUpdateTicked;
 
             // validate translations
             if (!helper.Translation.GetTranslations().Any())
                 this.Monitor.Log("The translation files in this mod's i18n folder seem to be missing. The mod will still work, but you'll see 'missing translation' messages. Try reinstalling the mod to fix this.", LogLevel.Warn);
+        }
+
+        private void OnOneSecondUpdateTicked(object sender, OneSecondUpdateTickedEventArgs e)
+        {
+            var chests = this.ChestFactory.GetChests(this.GetAllRange());
+            foreach(var chest in chests)
+            {
+                
+            }
+            this.Helper.Multiplayer.SendMessage<IEnumerable<ManagedChest>>(chests, "ChestData", new[] { this.Helper.ModRegistry.ModID });
         }
 
 
@@ -294,6 +305,11 @@ namespace Pathoschild.Stardew.ChestsAnywhere
                 ? ChestRange.None
                 : this.Config.Range;
             return new RangeHandler(this.Data.WorldAreas, range, Game1.currentLocation);
+        }
+
+        private RangeHandler GetAllRange()
+        {
+            return new RangeHandler(this.Data.WorldAreas, ChestRange.Unlimited, Game1.currentLocation);
         }
 
         /// <summary>Get the error translation key to show if no chests were found.</summary>
