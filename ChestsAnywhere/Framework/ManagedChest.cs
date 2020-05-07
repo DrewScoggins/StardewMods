@@ -73,6 +73,11 @@ namespace Pathoschild.Stardew.ChestsAnywhere.Framework
             this.DefaultCategory = defaultCategory;
         }
 
+        public ManagedChest()
+        {
+
+        }
+
         /// <summary>Reset all data to the default.</summary>
         public void Reset()
         {

@@ -58,25 +58,57 @@ namespace Pathoschild.Stardew.ChestsAnywhere
             this.EnableShippingBin = enableShippingBin;
         }
 
+        public class LocationCategory
+        {
+            public GameLocation Location { get; set; }
+            public string Category { get; set; }
+            public LocationCategory()
+            {
+
+            }
+            public LocationCategory(GameLocation loc, string cat)
+            {
+                this.Location = loc;
+                this.Category = cat;
+            }
+        }
+
         /// <summary>Get all player chests.</summary>
         /// <param name="range">Determines whether given locations are in range of the player for remote chest access.</param>
         /// <param name="excludeHidden">Whether to exclude chests marked as hidden.</param>
         /// <param name="alwaysIncludeContainer">A container to include even if it would normally be hidden.</param>
-        public IEnumerable<ManagedChest> GetChests(RangeHandler range, bool excludeHidden = false, IContainer alwaysIncludeContainer = null)
+        public IEnumerable<ManagedChest> GetChests(RangeHandler range, IEnumerable<GameLocation> cachedLocations = null, bool excludeHidden = false, IContainer alwaysIncludeContainer = null)
         {
             IEnumerable<ManagedChest> Search()
             {
                 // get location info
-                var locations =
-                    (
-                        from GameLocation location in this.GetAccessibleLocations()
-                        select new
-                        {
-                            Location = location,
-                            Category = this.GetCategory(location)
-                        }
-                    )
-                    .ToArray();
+                LocationCategory[] locations = null;
+                if (cachedLocations == null)
+                {
+                    locations =
+                        (
+                            from GameLocation location in this.GetAccessibleLocations()
+                            select new LocationCategory()
+                            {
+                                Location = location,
+                                Category = this.GetCategory(location)
+                            }
+                        )
+                        .ToArray();
+                }
+                else
+                {
+                    locations =
+                        (
+                            from GameLocation location in cachedLocations
+                            select new LocationCategory()
+                            {
+                                Location = location,
+                                Category = this.GetCategory(location)
+                            }
+                        )
+                        .ToArray();
+                }
                 IDictionary<string, int> defaultCategories = locations
                     .GroupBy(p => p.Category)
                     .Where(p => p.Count() > 1)
@@ -234,7 +266,7 @@ namespace Pathoschild.Stardew.ChestsAnywhere
                 return null;
 
             return this
-                .GetChests(RangeHandler.CurrentLocation())
+                .GetChests(RangeHandler.CurrentLocation(), cachedLocations: ModEntry.CachedLocations)
                 .FirstOrDefault(p => p.Container.IsSameAs(chest.items));
         }
 
@@ -259,7 +291,7 @@ namespace Pathoschild.Stardew.ChestsAnywhere
 
             // get chest from inventory
             return this
-                .GetChests(RangeHandler.Unlimited())
+                .GetChests(RangeHandler.Unlimited(), cachedLocations: ModEntry.CachedLocations)
                 .FirstOrDefault(p => p.Container.IsSameAs(inventory));
         }
 

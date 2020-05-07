@@ -1,6 +1,10 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
+using System.Runtime;
+using System.Text;
+using System.Xml.Serialization;
 using Microsoft.Xna.Framework;
 using Pathoschild.Stardew.ChestsAnywhere.Framework;
 using Pathoschild.Stardew.ChestsAnywhere.Framework.Containers;
@@ -10,8 +14,13 @@ using Pathoschild.Stardew.Common.Messages;
 using StardewModdingAPI;
 using StardewModdingAPI.Events;
 using StardewValley;
+using StardewValley.Characters;
 using StardewValley.Locations;
 using StardewValley.Menus;
+using StardewValley.Monsters;
+using StardewValley.Network;
+using StardewValley.Objects;
+using SObject = StardewValley.Object;
 
 namespace Pathoschild.Stardew.ChestsAnywhere
 {
@@ -43,6 +52,10 @@ namespace Pathoschild.Stardew.ChestsAnywhere
         /// <summary>The overlay for the current menu which which lets the player navigate and edit chests (or <c>null</c> if not applicable).</summary>
         private IStorageOverlay CurrentOverlay;
 
+        public static IEnumerable<GameLocation> CachedLocations;
+        private uint LastUpdateTick;
+        private uint ChestLocationHash;
+
 
         /*********
         ** Public methods
@@ -64,20 +77,77 @@ namespace Pathoschild.Stardew.ChestsAnywhere
             helper.Events.Display.RenderedHud += this.OnRenderedHud;
             helper.Events.Input.ButtonPressed += this.OnButtonPressed;
             helper.Events.GameLoop.OneSecondUpdateTicked += this.OnOneSecondUpdateTicked;
+            helper.Events.Multiplayer.ModMessageReceived += this.OnModMessageReceived;
 
             // validate translations
             if (!helper.Translation.GetTranslations().Any())
                 this.Monitor.Log("The translation files in this mod's i18n folder seem to be missing. The mod will still work, but you'll see 'missing translation' messages. Try reinstalling the mod to fix this.", LogLevel.Warn);
         }
 
+        private void OnModMessageReceived(object sender, ModMessageReceivedEventArgs e)
+        {
+            this.Monitor.Log($"Message Received, {e.Type}", LogLevel.Trace);
+            if (e.Type == "AllChestData")
+            {
+                List<byte[]> data = e.ReadAs<List<byte[]>>();
+                XmlSerializer ser = new XmlSerializer(typeof(GameLocation), new Type[] { typeof(Horse), typeof(Cat), typeof(GreenSlime) });
+                List<GameLocation> gameLocs = new List<GameLocation>();
+                foreach (byte[] datum in data)
+                {
+                    MemoryStream ms = new MemoryStream(datum);
+                    gameLocs.Add((GameLocation)ser.Deserialize(ms));
+                }
+                CachedLocations = gameLocs;
+            }
+        }
+
         private void OnOneSecondUpdateTicked(object sender, OneSecondUpdateTickedEventArgs e)
         {
-            var chests = this.ChestFactory.GetChests(this.GetAllRange());
-            foreach(var chest in chests)
+            this.LastUpdateTick++;
+            List<string> chestNames = new List<string>();
+            if (!Context.IsWorldReady || !Context.IsMainPlayer || this.LastUpdateTick % 10 != 0)
+                return;
+
+            foreach(var location in CommonHelper.GetLocations())
             {
-                
+                if (location.Name != "BugLand" && location.Name != "DeepWoods")
+                {
+                    foreach(KeyValuePair <Vector2, SObject> pair in location.Objects.Pairs)
+                    {
+                        Vector2 tile = pair.Key;
+                        SObject obj = pair.Value;
+
+                        // chests
+                        if (obj is Chest chest && chest.playerChest.Value)
+                        {
+                            chestNames.Add(chest.Name);
+                        }
+                    }
+                }
             }
-            this.Helper.Multiplayer.SendMessage<IEnumerable<ManagedChest>>(chests, "ChestData", new[] { this.Helper.ModRegistry.ModID });
+            chestNames.Sort();
+            uint chestHash = (uint)chestNames.Aggregate((e, f) => { return e += f; }).GetHashCode();
+            this.LastUpdateTick = e.Ticks;
+            if (this.ChestLocationHash != chestHash)
+            {
+                XmlSerializer ser = new XmlSerializer(typeof(GameLocation), new Type[] { typeof(Horse), typeof(Cat), typeof(GreenSlime) });
+                MemoryStream ms = new MemoryStream();
+                List<byte[]> locations = new List<byte[]>();
+
+                foreach (var location in CommonHelper.GetLocations())
+                {
+                    ser.Serialize(ms, location);
+                    locations.Add(ms.ToArray());
+                    ms = new MemoryStream();
+                }
+                this.Monitor.Log($"Sending Message", LogLevel.Trace);
+                this.ChestLocationHash = chestHash;
+                this.Helper.Multiplayer.SendMessage<List<byte[]>>(
+                    locations,
+                    "AllChestData",
+                    modIDs: new[] { this.ModManifest.UniqueID },
+                    playerIDs: this.Helper.Multiplayer.GetConnectedPlayers().Select(e => { return e.PlayerID; }).ToArray());
+            }
         }
 
 
@@ -209,7 +279,7 @@ namespace Pathoschild.Stardew.ChestsAnywhere
 
             // add overlay
             RangeHandler range = this.GetCurrentRange();
-            ManagedChest[] chests = this.ChestFactory.GetChests(range, excludeHidden: true, alwaysIncludeContainer: chest.Container).ToArray();
+            ManagedChest[] chests = this.ChestFactory.GetChests(range, cachedLocations: CachedLocations, excludeHidden: true, alwaysIncludeContainer: chest.Container).ToArray();
             bool isAutomateInstalled = this.Helper.ModRegistry.IsLoaded("Pathoschild.Automate");
             switch (menu)
             {
@@ -244,7 +314,7 @@ namespace Pathoschild.Stardew.ChestsAnywhere
 
             // get chests
             RangeHandler range = this.GetCurrentRange();
-            ManagedChest[] chests = this.ChestFactory.GetChests(range, excludeHidden: true).ToArray();
+            ManagedChest[] chests = this.ChestFactory.GetChests(range, cachedLocations: CachedLocations, excludeHidden: true).ToArray();
             ManagedChest selectedChest = chests.FirstOrDefault(p => p.Container.IsSameAs(this.SelectedInventory)) ?? chests.FirstOrDefault();
 
             // show error
