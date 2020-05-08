@@ -29,6 +29,11 @@ namespace Pathoschild.Stardew.ChestsAnywhere.Framework.Containers
             this.AutoGrabber = autoGrabber;
         }
 
+        public AutoGrabberContainer()
+        {
+
+        }
+
 
         /*********
         ** Private methods

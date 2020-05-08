@@ -69,6 +69,7 @@ namespace Pathoschild.Stardew.ChestsAnywhere.Framework
         /// <param name="defaultCategory">The default category to display if it hasn't been customized.</param>
         public ManagedChest(IContainer container, GameLocation location, Vector2 tile, string defaultDisplayName, string defaultCategory)
         {
+            this.Container = new ContainerSerialize();
             this.Container.Container = container;
             this.Location = location.Name;
             this.Tile = tile;

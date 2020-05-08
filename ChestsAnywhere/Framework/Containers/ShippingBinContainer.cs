@@ -72,6 +72,11 @@ namespace Pathoschild.Stardew.ChestsAnywhere.Framework.Containers
             this.Mode = mode;
         }
 
+        public ShippingBinContainer()
+        {
+
+        }
+
         /// <summary>Get whether the inventory can accept the item type.</summary>
         /// <param name="item">The item.</param>
         public bool CanAcceptItem(Item item)
