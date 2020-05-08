@@ -265,7 +265,7 @@ namespace Pathoschild.Stardew.ChestsAnywhere
             }
             else
             {
-                chests = this.ChestFactory.GetChests(range, excludeHidden: true, alwaysIncludeContainer: chest.Container).ToArray();
+                chests = this.ChestFactory.GetChests(range, excludeHidden: true, alwaysIncludeContainer: chest.Container.Container).ToArray();
             }
             bool isAutomateInstalled = this.Helper.ModRegistry.IsLoaded("Pathoschild.Automate");
             switch (menu)
@@ -280,7 +280,7 @@ namespace Pathoschild.Stardew.ChestsAnywhere
             }
             this.CurrentOverlay.OnChestSelected += selected =>
             {
-                this.SelectedInventory = selected.Container.Inventory;
+                this.SelectedInventory = selected.Container.Container.Inventory;
                 Game1.activeClickableMenu = selected.OpenMenu();
             };
             this.CurrentOverlay.OnAutomateOptionsChanged += this.NotifyAutomateOfChestUpdate;
@@ -302,7 +302,7 @@ namespace Pathoschild.Stardew.ChestsAnywhere
             // get chests
             RangeHandler range = this.GetCurrentRange();
             ManagedChest[] chests = this.ChestFactory.GetChests(range, excludeHidden: true).ToArray();
-            ManagedChest selectedChest = chests.FirstOrDefault(p => p.Container.IsSameAs(this.SelectedInventory)) ?? chests.FirstOrDefault();
+            ManagedChest selectedChest = chests.FirstOrDefault(p => p.Container.Container.IsSameAs(this.SelectedInventory)) ?? chests.FirstOrDefault();
 
             // show error
             if (selectedChest == null)

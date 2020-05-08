@@ -23,7 +23,7 @@ namespace Pathoschild.Stardew.ChestsAnywhere.Framework
         ** Accessors
         *********/
         /// <summary>The storage container.</summary>
-        public IContainer Container { get; set; }
+        public ContainerSerialize Container { get; set; }
 
         /// <summary>The location or building which contains the chest.</summary>
         public string Location { get; set; }
@@ -34,28 +34,28 @@ namespace Pathoschild.Stardew.ChestsAnywhere.Framework
         public bool IsSkullMine { get; set; }
 
         /// <summary>Whether the player can customize the container data.</summary>
-        public bool CanEdit => this.Container.IsDataEditable;
+        public bool CanEdit => this.Container.Container.IsDataEditable;
 
         /// <summary>Whether Automate options can be configured for this chest.</summary>
-        public bool CanConfigureAutomate => this.Container.CanConfigureAutomate;
+        public bool CanConfigureAutomate => this.Container.Container.CanConfigureAutomate;
 
         /// <summary>The user-friendly display name.</summary>
-        public string DisplayName => !this.Container.Data.HasDefaultDisplayName() ? this.Container.Data.Name : this.DefaultDisplayName;
+        public string DisplayName => !this.Container.Container.Data.HasDefaultDisplayName() ? this.Container.Container.Data.Name : this.DefaultDisplayName;
 
         /// <summary>The user-friendly category name (if any).</summary>
-        public string DisplayCategory => this.Container.Data.Category ?? this.DefaultCategory;
+        public string DisplayCategory => this.Container.Container.Data.Category ?? this.DefaultCategory;
 
         /// <summary>Whether the container should be ignored.</summary>
-        public bool IsIgnored => this.Container.Data.IsIgnored;
+        public bool IsIgnored => this.Container.Container.Data.IsIgnored;
 
         /// <summary>Whether Automate should take items from this container.</summary>
-        public ContainerAutomatePreference AutomateTakeItems => this.Container.Data.AutomateTakeItems;
+        public ContainerAutomatePreference AutomateTakeItems => this.Container.Container.Data.AutomateTakeItems;
 
         /// <summary>Whether Automate should put items in this container.</summary>
-        public ContainerAutomatePreference AutomateStoreItems => this.Container.Data.AutomateStoreItems;
+        public ContainerAutomatePreference AutomateStoreItems => this.Container.Container.Data.AutomateStoreItems;
 
         /// <summary>The sort value (if any).</summary>
-        public int? Order => this.Container.Data.Order;
+        public int? Order => this.Container.Container.Data.Order;
 
 
         /*********
@@ -69,7 +69,7 @@ namespace Pathoschild.Stardew.ChestsAnywhere.Framework
         /// <param name="defaultCategory">The default category to display if it hasn't been customized.</param>
         public ManagedChest(IContainer container, GameLocation location, Vector2 tile, string defaultDisplayName, string defaultCategory)
         {
-            this.Container = container;
+            this.Container.Container = container;
             this.Location = location.Name;
             this.Tile = tile;
             this.DefaultDisplayName = defaultDisplayName;
@@ -89,7 +89,7 @@ namespace Pathoschild.Stardew.ChestsAnywhere.Framework
         /// <summary>Reset all data to the default.</summary>
         public void Reset()
         {
-            this.Container.Data.Reset();
+            this.Container.Container.Data.Reset();
         }
 
         /// <summary>Update the chest metadata.</summary>
@@ -101,7 +101,7 @@ namespace Pathoschild.Stardew.ChestsAnywhere.Framework
         /// <param name="automateTakeItems">Whether Automate should put items in this container.</param>
         public void Update(string name, string category, int? order, bool ignored, ContainerAutomatePreference automateStoreItems, ContainerAutomatePreference automateTakeItems)
         {
-            ContainerData data = this.Container.Data;
+            ContainerData data = this.Container.Container.Data;
 
             data.Name = !string.IsNullOrWhiteSpace(name) && name != this.DefaultDisplayName
                 ? name.Trim()
@@ -114,19 +114,19 @@ namespace Pathoschild.Stardew.ChestsAnywhere.Framework
             data.AutomateStoreItems = automateStoreItems;
             data.AutomateTakeItems = automateTakeItems;
 
-            this.Container.SaveData();
+            this.Container.Container.SaveData();
         }
 
         /// <summary>Open a menu to transfer items between the player's inventory and this chest.</summary>
         public IClickableMenu OpenMenu()
         {
-            return this.Container.OpenMenu();
+            return this.Container.Container.OpenMenu();
         }
 
         /// <summary>Get whether the container has its default name.</summary>
         public bool HasDefaultName()
         {
-            return this.Container.Data.HasDefaultDisplayName();
+            return this.Container.Container.Data.HasDefaultDisplayName();
         }
     }
 }

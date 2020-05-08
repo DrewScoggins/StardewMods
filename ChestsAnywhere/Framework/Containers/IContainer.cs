@@ -1,9 +1,41 @@
+using System;
 using System.Collections.Generic;
+using System.Xml;
+using System.Xml.Schema;
+using System.Xml.Serialization;
 using StardewValley;
 using StardewValley.Menus;
 
 namespace Pathoschild.Stardew.ChestsAnywhere.Framework.Containers
 {
+
+    public class ContainerSerialize : IXmlSerializable
+    {
+        public IContainer Container { get; set; }
+        public XmlSchema GetSchema()
+        {
+            return null;
+        }
+
+        public void ReadXml(XmlReader reader)
+        {
+            reader.ReadStartElement("Conatiner");
+            string strType = reader.GetAttribute("type");
+            XmlSerializer serial = new XmlSerializer(Type.GetType(strType));
+            this.Container = (IContainer)serial.Deserialize(reader);
+            reader.ReadEndElement();
+        }
+
+        public void WriteXml(XmlWriter writer)
+        {
+            writer.WriteStartElement("Container");
+            string strType = this.Container.GetType().FullName;
+            writer.WriteAttributeString("type", strType);
+            XmlSerializer serial = new XmlSerializer(Type.GetType(strType));
+            serial.Serialize(writer, this.Container);
+            writer.WriteEndElement();
+        }
+    }
     /// <summary>An in-game container which can store items.</summary>
     public interface IContainer
     {
