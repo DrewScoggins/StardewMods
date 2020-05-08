@@ -252,7 +252,7 @@ namespace Pathoschild.Stardew.ChestsAnywhere
                     chest.Container.IsSameAs(alwaysIncludeContainer)
                     || (
                         (!excludeHidden || !chest.IsIgnored)
-                        && range.IsInRange(chest.Location)
+                        && range.IsInRange(chest.Location, chest.IsMine, chest.IsSkullMine)
                     )
                 select chest
             );
