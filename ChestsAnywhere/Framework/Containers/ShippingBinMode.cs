@@ -1,7 +1,7 @@
 namespace Pathoschild.Stardew.ChestsAnywhere.Framework.Containers
 {
     /// <summary>The type of shipping bin menu to create.</summary>
-    internal enum ShippingBinMode
+    public enum ShippingBinMode
     {
         /// <summary>The normal bidirectional shipping bin.</summary>
         Normal,

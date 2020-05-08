@@ -6,7 +6,7 @@ using SObject = StardewValley.Object;
 namespace Pathoschild.Stardew.ChestsAnywhere.Framework.Containers
 {
     /// <summary>A storage container for an in-game auto-grabber.</summary>
-    internal class AutoGrabberContainer : ChestContainer
+    public class AutoGrabberContainer : ChestContainer
     {
         /*********
         ** Fields

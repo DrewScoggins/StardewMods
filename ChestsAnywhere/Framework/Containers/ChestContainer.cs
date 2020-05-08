@@ -7,7 +7,7 @@ using StardewValley.Objects;
 namespace Pathoschild.Stardew.ChestsAnywhere.Framework.Containers
 {
     /// <summary>A storage container for an in-game chest.</summary>
-    internal class ChestContainer : IContainer
+    public class ChestContainer : IContainer
     {
         /*********
         ** Fields

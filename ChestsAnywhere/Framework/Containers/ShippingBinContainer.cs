@@ -10,7 +10,7 @@ using SFarmer = StardewValley.Farmer;
 namespace Pathoschild.Stardew.ChestsAnywhere.Framework.Containers
 {
     /// <summary>A storage container for the shipping bin.</summary>
-    internal class ShippingBinContainer : IContainer
+    public class ShippingBinContainer : IContainer
     {
         /*********
         ** Fields
