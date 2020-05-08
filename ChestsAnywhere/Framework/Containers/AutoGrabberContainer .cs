@@ -12,7 +12,7 @@ namespace Pathoschild.Stardew.ChestsAnywhere.Framework.Containers
         ** Fields
         *********/
         /// <summary>The underlying auto-grabber.</summary>
-        private readonly SObject AutoGrabber;
+        public readonly SObject AutoGrabber;
 
 
         /*********

@@ -19,7 +19,7 @@ namespace Pathoschild.Stardew.ChestsAnywhere.Framework.Containers
 
         public void ReadXml(XmlReader reader)
         {
-            reader.ReadStartElement("Conatiner");
+            reader.ReadStartElement("Container");
             string strType = reader.GetAttribute("type");
             XmlSerializer serial = new XmlSerializer(Type.GetType(strType));
             this.Container = (IContainer)serial.Deserialize(reader);

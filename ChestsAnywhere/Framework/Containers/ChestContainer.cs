@@ -13,16 +13,16 @@ namespace Pathoschild.Stardew.ChestsAnywhere.Framework.Containers
         ** Fields
         *********/
         /// <summary>The container's default internal name.</summary>
-        private readonly string DefaultName = "Chest";
+        public readonly string DefaultName = "Chest";
 
         /// <summary>The in-game chest.</summary>
-        protected readonly Chest Chest;
+        public readonly Chest Chest;
 
         /// <summary>The <see cref="ItemGrabMenu.context"/> value which indicates what opened the menu.</summary>
-        private readonly object Context;
+        public readonly object Context;
 
         /// <summary>Simplifies access to private code.</summary>
-        private readonly IReflectionHelper Reflection;
+        public readonly IReflectionHelper Reflection;
 
 
         /*********
