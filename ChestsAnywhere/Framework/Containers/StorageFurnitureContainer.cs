@@ -8,7 +8,7 @@ using StardewValley.Objects;
 namespace Pathoschild.Stardew.ChestsAnywhere.Framework.Containers
 {
     /// <summary>A storage container for a <see cref="StorageFurniture"/> instance (e.g. a dresser).</summary>
-    internal class StorageFurnitureContainer : IContainer
+    public class StorageFurnitureContainer : IContainer
     {
         /*********
         ** Fields
@@ -54,6 +54,11 @@ namespace Pathoschild.Stardew.ChestsAnywhere.Framework.Containers
             this.DefaultName = defaultName;
             if (StorageFurnitureContainer.DresserCategories == null)
                 StorageFurnitureContainer.DresserCategories = new HashSet<int>(new ShopMenu(new List<ISalable>(), context: "Dresser").categoriesToSellHere);
+        }
+
+        public StorageFurnitureContainer()
+        {
+
         }
 
         /// <summary>Get whether the inventory can accept the item type.</summary>
