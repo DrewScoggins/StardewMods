@@ -89,11 +89,15 @@ namespace Pathoschild.Stardew.ChestsAnywhere
             this.Monitor.Log($"Message Received, {e.Type}", LogLevel.Trace);
             if (e.Type == "AllChestData")
             {
-                byte[] data = e.ReadAs<byte[]>();
-                XmlSerializer ser = new XmlSerializer(typeof(ManagedChest[]));
-
-                MemoryStream ms = new MemoryStream(data);
-                CachedChests = (ManagedChest[])ser.Deserialize(ms);
+                List<byte[]> data = e.ReadAs<List<byte[]>>();
+                XmlSerializer ser = new XmlSerializer(typeof(ManagedChest));
+                List<ManagedChest> chestList = new List<ManagedChest>();
+                foreach (byte[] datam in data)
+                {
+                    MemoryStream ms = new MemoryStream(datam);
+                    chestList.Add((ManagedChest)ser.Deserialize(ms));
+                }
+                CachedChests = chestList.ToArray();
             }
         }
 
@@ -106,16 +110,20 @@ namespace Pathoschild.Stardew.ChestsAnywhere
 
             var chestsToSend = this.ChestFactory.GetChests(RangeHandler.Unlimited()).ToArray();
             this.LastUpdateTick = e.Ticks;
-            XmlSerializer ser = new XmlSerializer(typeof(ManagedChest[]));
+            XmlSerializer ser = new XmlSerializer(typeof(ManagedChest));
             MemoryStream ms = new MemoryStream();
-
-            ser.Serialize(ms, chestsToSend);
+            List<byte[]> serializedChests = new List<byte[]>();
+            foreach (var chest in chestsToSend)
+            {
+                ser.Serialize(ms, chest);
+                serializedChests.Add(ms.ToArray());
+            }
 
 
             this.Monitor.Log($"Sending Message", LogLevel.Trace);
             this.ChestLocationHash = chestHash;
-            this.Helper.Multiplayer.SendMessage<byte[]>(
-                ms.ToArray(),
+            this.Helper.Multiplayer.SendMessage<List<byte[]>>(
+                serializedChests,
                 "AllChestData",
                 modIDs: new[] { this.ModManifest.UniqueID },
                 playerIDs: this.Helper.Multiplayer.GetConnectedPlayers().Select(e => { return e.PlayerID; }).ToArray());
