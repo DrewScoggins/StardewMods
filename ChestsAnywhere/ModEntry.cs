@@ -52,9 +52,9 @@ namespace Pathoschild.Stardew.ChestsAnywhere
         /// <summary>The overlay for the current menu which which lets the player navigate and edit chests (or <c>null</c> if not applicable).</summary>
         private IStorageOverlay CurrentOverlay;
 
-        public static IEnumerable<GameLocation> CachedLocations;
+        public static ManagedChest[] CachedChests;
         private uint LastUpdateTick;
-        private uint ChestLocationHash;
+        private ulong ChestLocationHash;
 
 
         /*********
@@ -89,65 +89,36 @@ namespace Pathoschild.Stardew.ChestsAnywhere
             this.Monitor.Log($"Message Received, {e.Type}", LogLevel.Trace);
             if (e.Type == "AllChestData")
             {
-                List<byte[]> data = e.ReadAs<List<byte[]>>();
-                XmlSerializer ser = new XmlSerializer(typeof(GameLocation), new Type[] { typeof(Horse), typeof(Cat), typeof(GreenSlime) });
-                List<GameLocation> gameLocs = new List<GameLocation>();
-                foreach (byte[] datum in data)
-                {
-                    MemoryStream ms = new MemoryStream(datum);
-                    gameLocs.Add((GameLocation)ser.Deserialize(ms));
-                }
-                CachedLocations = gameLocs;
+                byte[] data = e.ReadAs<byte[]>();
+                XmlSerializer ser = new XmlSerializer(typeof(ManagedChest[]));
+
+                MemoryStream ms = new MemoryStream(data);
+                CachedChests = (ManagedChest[])ser.Deserialize(ms);
             }
         }
 
         private void OnOneSecondUpdateTicked(object sender, OneSecondUpdateTickedEventArgs e)
         {
             this.LastUpdateTick++;
-            List<string> chestNames = new List<string>();
+            ulong chestHash = 0;
             if (!Context.IsWorldReady || !Context.IsMainPlayer || this.LastUpdateTick % 10 != 0)
                 return;
 
-            foreach(var location in CommonHelper.GetLocations())
-            {
-                if (location.Name != "BugLand" && location.Name != "DeepWoods")
-                {
-                    foreach(KeyValuePair <Vector2, SObject> pair in location.Objects.Pairs)
-                    {
-                        Vector2 tile = pair.Key;
-                        SObject obj = pair.Value;
-
-                        // chests
-                        if (obj is Chest chest && chest.playerChest.Value)
-                        {
-                            chestNames.Add(chest.Name);
-                        }
-                    }
-                }
-            }
-            chestNames.Sort();
-            uint chestHash = (uint)chestNames.Aggregate((e, f) => { return e += f; }).GetHashCode();
+            var chestsToSend = this.ChestFactory.GetChests(RangeHandler.Unlimited()).ToArray();
             this.LastUpdateTick = e.Ticks;
-            if (this.ChestLocationHash != chestHash)
-            {
-                XmlSerializer ser = new XmlSerializer(typeof(GameLocation), new Type[] { typeof(Horse), typeof(Cat), typeof(GreenSlime) });
-                MemoryStream ms = new MemoryStream();
-                List<byte[]> locations = new List<byte[]>();
+            XmlSerializer ser = new XmlSerializer(typeof(ManagedChest[]));
+            MemoryStream ms = new MemoryStream();
 
-                foreach (var location in CommonHelper.GetLocations())
-                {
-                    ser.Serialize(ms, location);
-                    locations.Add(ms.ToArray());
-                    ms = new MemoryStream();
-                }
-                this.Monitor.Log($"Sending Message", LogLevel.Trace);
-                this.ChestLocationHash = chestHash;
-                this.Helper.Multiplayer.SendMessage<List<byte[]>>(
-                    locations,
-                    "AllChestData",
-                    modIDs: new[] { this.ModManifest.UniqueID },
-                    playerIDs: this.Helper.Multiplayer.GetConnectedPlayers().Select(e => { return e.PlayerID; }).ToArray());
-            }
+            ser.Serialize(ms, chestsToSend);
+
+
+            this.Monitor.Log($"Sending Message", LogLevel.Trace);
+            this.ChestLocationHash = chestHash;
+            this.Helper.Multiplayer.SendMessage<byte[]>(
+                ms.ToArray(),
+                "AllChestData",
+                modIDs: new[] { this.ModManifest.UniqueID },
+                playerIDs: this.Helper.Multiplayer.GetConnectedPlayers().Select(e => { return e.PlayerID; }).ToArray());
         }
 
 
@@ -279,7 +250,15 @@ namespace Pathoschild.Stardew.ChestsAnywhere
 
             // add overlay
             RangeHandler range = this.GetCurrentRange();
-            ManagedChest[] chests = this.ChestFactory.GetChests(range, cachedLocations: CachedLocations, excludeHidden: true, alwaysIncludeContainer: chest.Container).ToArray();
+            ManagedChest[] chests = null;
+            if (CachedChests != null)
+            {
+                chests = CachedChests.Where(e => range.IsInRange(e.Location)).ToArray();
+            }
+            else
+            {
+                chests = this.ChestFactory.GetChests(range, excludeHidden: true, alwaysIncludeContainer: chest.Container).ToArray();
+            }
             bool isAutomateInstalled = this.Helper.ModRegistry.IsLoaded("Pathoschild.Automate");
             switch (menu)
             {
@@ -314,7 +293,7 @@ namespace Pathoschild.Stardew.ChestsAnywhere
 
             // get chests
             RangeHandler range = this.GetCurrentRange();
-            ManagedChest[] chests = this.ChestFactory.GetChests(range, cachedLocations: CachedLocations, excludeHidden: true).ToArray();
+            ManagedChest[] chests = this.ChestFactory.GetChests(range, excludeHidden: true).ToArray();
             ManagedChest selectedChest = chests.FirstOrDefault(p => p.Container.IsSameAs(this.SelectedInventory)) ?? chests.FirstOrDefault();
 
             // show error

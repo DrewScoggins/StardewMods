@@ -266,7 +266,7 @@ namespace Pathoschild.Stardew.ChestsAnywhere
                 return null;
 
             return this
-                .GetChests(RangeHandler.CurrentLocation(), cachedLocations: ModEntry.CachedLocations)
+                .GetChests(RangeHandler.CurrentLocation())
                 .FirstOrDefault(p => p.Container.IsSameAs(chest.items));
         }
 
@@ -291,7 +291,7 @@ namespace Pathoschild.Stardew.ChestsAnywhere
 
             // get chest from inventory
             return this
-                .GetChests(RangeHandler.Unlimited(), cachedLocations: ModEntry.CachedLocations)
+                .GetChests(RangeHandler.Unlimited())
                 .FirstOrDefault(p => p.Container.IsSameAs(inventory));
         }
 

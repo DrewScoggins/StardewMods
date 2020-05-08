@@ -3,7 +3,7 @@ using System.Text.RegularExpressions;
 namespace Pathoschild.Stardew.ChestsAnywhere.Framework
 {
     /// <summary>The model for custom container data.</summary>
-    internal class ContainerData
+    public class ContainerData
     {
         /*********
         ** Fields

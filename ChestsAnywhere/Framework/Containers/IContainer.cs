@@ -5,7 +5,7 @@ using StardewValley.Menus;
 namespace Pathoschild.Stardew.ChestsAnywhere.Framework.Containers
 {
     /// <summary>An in-game container which can store items.</summary>
-    internal interface IContainer
+    public interface IContainer
     {
         /*********
         ** Accessors

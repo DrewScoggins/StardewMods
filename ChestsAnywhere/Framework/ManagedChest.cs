@@ -6,7 +6,7 @@ using StardewValley.Menus;
 namespace Pathoschild.Stardew.ChestsAnywhere.Framework
 {
     /// <summary>A chest with metadata.</summary>
-    internal class ManagedChest
+    public class ManagedChest
     {
         /*********
         ** Fields

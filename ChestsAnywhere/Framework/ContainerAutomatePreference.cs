@@ -1,7 +1,7 @@
 namespace Pathoschild.Stardew.ChestsAnywhere.Framework
 {
     /// <summary>How Automate should use a container.</summary>
-    internal enum ContainerAutomatePreference
+    public enum ContainerAutomatePreference
     {
         /// <summary>Allow input/output for this container.</summary>
         Allow,
