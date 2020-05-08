@@ -20,7 +20,7 @@ namespace Pathoschild.Stardew.ChestsAnywhere.Framework
         private readonly string CurrentZone;
 
         /// <summary>A location => zone lookup if <see cref="Range"/> is <see cref="ChestRange.CurrentWorldArea"/>.</summary>
-        private readonly IDictionary<GameLocation, string> WorldAreaZones;
+        private readonly IDictionary<string, string> WorldAreaZones;
 
 
         /*********
@@ -36,14 +36,16 @@ namespace Pathoschild.Stardew.ChestsAnywhere.Framework
 
             if (range == ChestRange.CurrentWorldArea)
                 this.WorldAreaZones = this.GetWorldAreaZones(worldAreas);
-            this.CurrentZone = this.GetZone(currentLocation, range);
+            bool isMine = currentLocation is MineShaft;
+            bool isSkullMine = currentLocation is MineShaft ? ((MineShaft)currentLocation).mineLevel > 120 ? true : false : false;
+            this.CurrentZone = this.GetZone(currentLocation.Name, range, isMine, isSkullMine);
         }
 
         /// <summary>Get whether a location is within range of the player.</summary>
         /// <param name="location">The location to check.</param>
-        public bool IsInRange(GameLocation location)
+        public bool IsInRange(string location, bool isMine, bool isSkullMine)
         {
-            string zone = this.GetZone(location, this.Range);
+            string zone = this.GetZone(location, this.Range, isMine, isSkullMine);
             return zone != null && zone == this.CurrentZone;
         }
 
@@ -66,7 +68,7 @@ namespace Pathoschild.Stardew.ChestsAnywhere.Framework
         /// <summary>Get the zone key for a location.</summary>
         /// <param name="location">The location to check.</param>
         /// <param name="range">The range within which chests should be accessible.</param>
-        private string GetZone(GameLocation location, ChestRange range)
+        private string GetZone(string location, ChestRange range, bool isMine, bool isSkullMine)
         {
             switch (range)
             {
@@ -74,15 +76,15 @@ namespace Pathoschild.Stardew.ChestsAnywhere.Framework
                     return "*";
 
                 case ChestRange.CurrentWorldArea:
-                    if (location is MineShaft mine)
-                        return mine.mineLevel <= 120 ? "Mine" : "SkullCave"; // match entrance name
+                    if (isMine)
+                        return isSkullMine ? "SkullCave" : "Mine"; // match entrance name
 
                     return this.WorldAreaZones.TryGetValue(location, out string zone)
                         ? zone
-                        : location.Name;
+                        : location;
 
                 case ChestRange.CurrentLocation:
-                    return location.Name;
+                    return location;
 
                 case ChestRange.None:
                     return null;
@@ -94,9 +96,9 @@ namespace Pathoschild.Stardew.ChestsAnywhere.Framework
 
         /// <summary>Get a lookup which matches locations to world area zones.</summary>
         /// <param name="worldAreas">The predefined world areas for <see cref="ChestRange.CurrentWorldArea"/>.</param>
-        private IDictionary<GameLocation, string> GetWorldAreaZones(IDictionary<string, HashSet<string>> worldAreas)
+        private IDictionary<string, string> GetWorldAreaZones(IDictionary<string, HashSet<string>> worldAreas)
         {
-            IDictionary<GameLocation, string> zones = new Dictionary<GameLocation, string>();
+            IDictionary<string, string> zones = new Dictionary<string, string>();
 
             foreach (GameLocation location in Game1.locations)
             {
@@ -105,14 +107,14 @@ namespace Pathoschild.Stardew.ChestsAnywhere.Framework
                     ?? location.Name;
 
                 // add location + buildings
-                zones[location] = zone;
+                zones[location.Name] = zone;
                 if (location is BuildableGameLocation buildableLocation)
                 {
                     foreach (Building building in buildableLocation.buildings)
                     {
                         GameLocation indoors = building.indoors.Value;
                         if (indoors != null)
-                            zones[indoors] = zone;
+                            zones[indoors.Name] = zone;
                     }
                 }
             }

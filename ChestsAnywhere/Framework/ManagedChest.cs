@@ -1,6 +1,7 @@
 using Microsoft.Xna.Framework;
 using Pathoschild.Stardew.ChestsAnywhere.Framework.Containers;
 using StardewValley;
+using StardewValley.Locations;
 using StardewValley.Menus;
 
 namespace Pathoschild.Stardew.ChestsAnywhere.Framework
@@ -22,13 +23,15 @@ namespace Pathoschild.Stardew.ChestsAnywhere.Framework
         ** Accessors
         *********/
         /// <summary>The storage container.</summary>
-        public IContainer Container { get; }
+        public IContainer Container { get; set; }
 
         /// <summary>The location or building which contains the chest.</summary>
-        public GameLocation Location { get; }
+        public string Location { get; set; }
 
         /// <summary>The chest's tile position within its location or building.</summary>
-        public Vector2 Tile { get; }
+        public Vector2 Tile { get; set; }
+        public bool IsMine { get; set; }
+        public bool IsSkullMine { get; set; }
 
         /// <summary>Whether the player can customize the container data.</summary>
         public bool CanEdit => this.Container.IsDataEditable;
@@ -67,10 +70,15 @@ namespace Pathoschild.Stardew.ChestsAnywhere.Framework
         public ManagedChest(IContainer container, GameLocation location, Vector2 tile, string defaultDisplayName, string defaultCategory)
         {
             this.Container = container;
-            this.Location = location;
+            this.Location = location.Name;
             this.Tile = tile;
             this.DefaultDisplayName = defaultDisplayName;
             this.DefaultCategory = defaultCategory;
+            if (location is MineShaft mine)
+            {
+                this.IsMine = true;
+                this.IsSkullMine = mine.mineLevel <= 120 ? false : true; // match entrance name
+            }
         }
 
         public ManagedChest()
