@@ -22,6 +22,8 @@ namespace Pathoschild.Stardew.ChestsAnywhere.Framework
         /// <summary>A location => zone lookup if <see cref="Range"/> is <see cref="ChestRange.CurrentWorldArea"/>.</summary>
         private readonly IDictionary<GameLocation, string> WorldAreaZones;
 
+        private readonly IDictionary<PsuedoGameLocation, string> PsuedoWorldAreaZones;
+
 
         /*********
         ** Public methods
@@ -35,13 +37,22 @@ namespace Pathoschild.Stardew.ChestsAnywhere.Framework
             this.Range = range;
 
             if (range == ChestRange.CurrentWorldArea)
+            {
                 this.WorldAreaZones = this.GetWorldAreaZones(worldAreas);
+                this.PsuedoWorldAreaZones = this.GetWorldAreaZonesPsuedo(worldAreas);
+            }
             this.CurrentZone = this.GetZone(currentLocation, range);
         }
 
         /// <summary>Get whether a location is within range of the player.</summary>
         /// <param name="location">The location to check.</param>
         public bool IsInRange(GameLocation location)
+        {
+            string zone = this.GetZone(location, this.Range);
+            return zone != null && zone == this.CurrentZone;
+        }
+
+        public bool IsInRange(PsuedoGameLocation location)
         {
             string zone = this.GetZone(location, this.Range);
             return zone != null && zone == this.CurrentZone;
@@ -92,6 +103,32 @@ namespace Pathoschild.Stardew.ChestsAnywhere.Framework
             }
         }
 
+        private string GetZone(PsuedoGameLocation location, ChestRange range)
+        {
+            switch (range)
+            {
+                case ChestRange.Unlimited:
+                    return "*";
+
+                case ChestRange.CurrentWorldArea:
+                    if (location.MineShaft)
+                        return location.MineName; // match entrance name
+
+                    return this.PsuedoWorldAreaZones.TryGetValue(location, out string zone)
+                        ? zone
+                        : location.Name;
+
+                case ChestRange.CurrentLocation:
+                    return location.Name;
+
+                case ChestRange.None:
+                    return null;
+
+                default:
+                    throw new NotSupportedException($"Unknown range '{range}'.");
+            }
+        }
+
         /// <summary>Get a lookup which matches locations to world area zones.</summary>
         /// <param name="worldAreas">The predefined world areas for <see cref="ChestRange.CurrentWorldArea"/>.</param>
         private IDictionary<GameLocation, string> GetWorldAreaZones(IDictionary<string, HashSet<string>> worldAreas)
@@ -113,6 +150,36 @@ namespace Pathoschild.Stardew.ChestsAnywhere.Framework
                         GameLocation indoors = building.indoors.Value;
                         if (indoors != null)
                             zones[indoors] = zone;
+                    }
+                }
+            }
+
+            return zones;
+        }
+
+        private IDictionary<PsuedoGameLocation, string> GetWorldAreaZonesPsuedo(IDictionary<string, HashSet<string>> worldAreas)
+        {
+            IDictionary<PsuedoGameLocation, string> zones = new Dictionary<PsuedoGameLocation, string>();
+
+            foreach (GameLocation location in Game1.locations)
+            {
+                PsuedoGameLocation pLocation = new PsuedoGameLocation(location);
+                // get zone key
+                string zone = (from area in worldAreas where area.Value.Contains(location.Name) select area.Key).FirstOrDefault()
+                    ?? location.Name;
+
+                // add location + buildings
+                zones[pLocation] = zone;
+                if (location is BuildableGameLocation buildableLocation)
+                {
+                    foreach (Building building in buildableLocation.buildings)
+                    {
+                        GameLocation indoors = building.indoors.Value;
+                        if (indoors != null)
+                        {
+                            PsuedoGameLocation pIndoors = new PsuedoGameLocation(indoors);
+                            zones[pIndoors] = zone;
+                        }
                     }
                 }
             }

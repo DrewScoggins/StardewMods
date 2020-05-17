@@ -27,6 +27,8 @@ namespace Pathoschild.Stardew.ChestsAnywhere.Framework
         /// <summary>The location or building which contains the chest.</summary>
         public GameLocation Location { get; }
 
+        public PsuedoGameLocation PsuedoLocation { get; }
+
         /// <summary>The chest's tile position within its location or building.</summary>
         public Vector2 Tile { get; }
 
@@ -64,13 +66,14 @@ namespace Pathoschild.Stardew.ChestsAnywhere.Framework
         /// <param name="tile">The chest's tile position within its location or building.</param>
         /// <param name="defaultDisplayName">The default name to display if it hasn't been customized.</param>
         /// <param name="defaultCategory">The default category to display if it hasn't been customized.</param>
-        public ManagedChest(IContainer container, GameLocation location, Vector2 tile, string defaultDisplayName, string defaultCategory)
+        public ManagedChest(IContainer container, GameLocation location, Vector2 tile, string defaultDisplayName, string defaultCategory, PsuedoGameLocation pLocation = null)
         {
             this.Container = container;
             this.Location = location;
             this.Tile = tile;
             this.DefaultDisplayName = defaultDisplayName;
             this.DefaultCategory = defaultCategory;
+            this.PsuedoLocation = pLocation;
         }
 
         public ManagedChest()

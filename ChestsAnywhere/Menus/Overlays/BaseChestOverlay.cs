@@ -268,7 +268,7 @@ namespace Pathoschild.Stardew.ChestsAnywhere.Menus.Overlays
 
                 // Location name
                 {
-                    string locationName = this.Chest.Location.Name;
+                    string locationName = this.Chest.PsuedoLocation != null ? this.Chest.PsuedoLocation.Name : this.Chest.Location.Name;
                     if (this.Chest.Tile != Vector2.Zero)
                         locationName += " (" + this.Translations.Get("label.location.tile", new { x = this.Chest.Tile.X, y = this.Chest.Tile.Y }) + ")";
 

@@ -77,38 +77,25 @@ namespace Pathoschild.Stardew.ChestsAnywhere
         /// <param name="range">Determines whether given locations are in range of the player for remote chest access.</param>
         /// <param name="excludeHidden">Whether to exclude chests marked as hidden.</param>
         /// <param name="alwaysIncludeContainer">A container to include even if it would normally be hidden.</param>
-        public IEnumerable<ManagedChest> GetChests(RangeHandler range, IEnumerable<GameLocation> cachedLocations = null, bool excludeHidden = false, IContainer alwaysIncludeContainer = null)
+        public IEnumerable<ManagedChest> GetChests(RangeHandler range, IEnumerable<ChestPsuedoGameLocation> cachedLocations = null, bool excludeHidden = false, IContainer alwaysIncludeContainer = null)
         {
             IEnumerable<ManagedChest> Search()
             {
                 // get location info
                 LocationCategory[] locations = null;
-                if (cachedLocations == null)
-                {
-                    locations =
-                        (
-                            from GameLocation location in this.GetAccessibleLocations()
-                            select new LocationCategory()
-                            {
-                                Location = location,
-                                Category = this.GetCategory(location)
-                            }
-                        )
-                        .ToArray();
-                }
-                else
-                {
-                    locations =
-                        (
-                            from GameLocation location in cachedLocations
-                            select new LocationCategory()
-                            {
-                                Location = location,
-                                Category = this.GetCategory(location)
-                            }
-                        )
-                        .ToArray();
-                }
+                HashSet<string> chestNames = new HashSet<string>();
+
+                locations =
+                    (
+                        from GameLocation location in this.GetAccessibleLocations()
+                        select new LocationCategory()
+                        {
+                            Location = location,
+                            Category = this.GetCategory(location)
+                        }
+                    )
+                    .ToArray();
+
                 IDictionary<string, int> defaultCategories = locations
                     .GroupBy(p => p.Category)
                     .Where(p => p.Count() > 1)
@@ -127,13 +114,30 @@ namespace Pathoschild.Stardew.ChestsAnywhere
                     {
                         int namelessChests = 0;
                         int namelessGrabbers = 0;
+                        if (cachedLocations != null && !Context.IsMainPlayer)
+                        {
+                            foreach (var chest in cachedLocations)
+                            {
+                                if (chestNames.Add(chest.Chest.Name))
+                                {
+                                    yield return new ManagedChest(
+                                            container: new ChestContainer(chest.Chest, context: chest, this.Reflection),
+                                            location: location,
+                                            tile: chest.Chest.TileLocation,
+                                            defaultDisplayName: this.Translations.Get("default-name.chest", new { number = ++namelessChests }),
+                                            defaultCategory: chest.PLoc.Name,
+                                            pLocation: chest.PLoc
+                                        );
+                                }
+                            }
+                        }
                         foreach (KeyValuePair<Vector2, SObject> pair in location.Objects.Pairs)
                         {
                             Vector2 tile = pair.Key;
                             SObject obj = pair.Value;
 
                             // chests
-                            if (obj is Chest chest && chest.playerChest.Value)
+                            if (obj is Chest chest && chest.playerChest.Value && chestNames.Add(chest.Name))
                             {
                                 yield return new ManagedChest(
                                     container: new ChestContainer(chest, context: chest, this.Reflection),
@@ -252,7 +256,7 @@ namespace Pathoschild.Stardew.ChestsAnywhere
                     chest.Container.IsSameAs(alwaysIncludeContainer)
                     || (
                         (!excludeHidden || !chest.IsIgnored)
-                        && range.IsInRange(chest.Location)
+                        && chest.PsuedoLocation != null ? range.IsInRange(chest.PsuedoLocation) : range.IsInRange(chest.Location)
                     )
                 select chest
             );
@@ -314,6 +318,9 @@ namespace Pathoschild.Stardew.ChestsAnywhere
             switch (context)
             {
                 // chest
+                case ChestPsuedoGameLocation chestPLoc:
+                    return chestPLoc.Chest.items;
+
                 case Chest chest:
                     return chest.items;
 

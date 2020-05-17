@@ -3,9 +3,11 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Runtime;
+using System.Runtime.Serialization.Formatters.Binary;
 using System.Text;
 using System.Xml.Serialization;
 using Microsoft.Xna.Framework;
+using Netcode;
 using Pathoschild.Stardew.ChestsAnywhere.Framework;
 using Pathoschild.Stardew.ChestsAnywhere.Framework.Containers;
 using Pathoschild.Stardew.ChestsAnywhere.Menus.Overlays;
@@ -52,9 +54,10 @@ namespace Pathoschild.Stardew.ChestsAnywhere
         /// <summary>The overlay for the current menu which which lets the player navigate and edit chests (or <c>null</c> if not applicable).</summary>
         private IStorageOverlay CurrentOverlay;
 
-        public static IEnumerable<GameLocation> CachedLocations;
-        private uint LastUpdateTick;
-        private uint ChestLocationHash;
+        public static IEnumerable<ChestPsuedoGameLocation> CachedLocations;
+        private uint LastUpdateTick = 0;
+        private uint ChestHash = 0;
+        private long playerHash = 0;
 
 
         /*********
@@ -90,12 +93,21 @@ namespace Pathoschild.Stardew.ChestsAnywhere
             if (e.Type == "AllChestData")
             {
                 List<byte[]> data = e.ReadAs<List<byte[]>>();
-                XmlSerializer ser = new XmlSerializer(typeof(GameLocation), new Type[] { typeof(Horse), typeof(Cat), typeof(GreenSlime) });
-                List<GameLocation> gameLocs = new List<GameLocation>();
+                XmlSerializer bf = new XmlSerializer(typeof(ChestPsuedoGameLocation));
+                List<ChestPsuedoGameLocation> gameLocs = new List<ChestPsuedoGameLocation>();
                 foreach (byte[] datum in data)
                 {
                     MemoryStream ms = new MemoryStream(datum);
-                    gameLocs.Add((GameLocation)ser.Deserialize(ms));
+                    var pair = (ChestPsuedoGameLocation)bf.Deserialize(ms);
+                    gameLocs.Add(pair);
+                    foreach(var location in CommonHelper.GetLocations())
+                    {
+                        if(location.Name == pair.PLoc.Name)
+                        {
+                            location.Objects[pair.Chest.TileLocation] = pair.Chest;
+                            break;
+                        }
+                    }
                 }
                 CachedLocations = gameLocs;
             }
@@ -103,15 +115,39 @@ namespace Pathoschild.Stardew.ChestsAnywhere
 
         private void OnOneSecondUpdateTicked(object sender, OneSecondUpdateTickedEventArgs e)
         {
+            //Way forward
+            Game1.netWorldState.Value.NetFields.AddField(yourCollection);
             this.LastUpdateTick++;
-            List<string> chestNames = new List<string>();
-            if (!Context.IsWorldReady || !Context.IsMainPlayer || this.LastUpdateTick % 10 != 0)
-                return;
-
-            foreach(var location in CommonHelper.GetLocations())
+            long checkPlayerHash = 0;
+            foreach(var player in this.Helper.Multiplayer.GetConnectedPlayers())
             {
+                checkPlayerHash += player.PlayerID;
+            }
+            if(this.playerHash == 0)
+            {
+                this.playerHash = checkPlayerHash;
+                this.ChestHash = 0;
+            }
+            else
+            {
+                if(this.playerHash != checkPlayerHash)
+                {
+                    this.ChestHash = 0;
+                    this.playerHash = checkPlayerHash;
+                }
+            }
+            uint currentChestHash = 0;
+            List<string> chestNames = new List<string>();
+            List<ChestPsuedoGameLocation> chests = new List<ChestPsuedoGameLocation>();
+            if (!Context.IsWorldReady || !Context.IsMainPlayer)
+                return;
+            MemoryStream ms3 = new MemoryStream();
+            foreach (var location in CommonHelper.GetLocations())
+            {
+                PsuedoGameLocation pLoc = new PsuedoGameLocation(location);
                 if (location.Name != "BugLand" && location.Name != "DeepWoods")
                 {
+                    location.NetFields.AddField(new NetCollection<Chest>());
                     foreach(KeyValuePair <Vector2, SObject> pair in location.Objects.Pairs)
                     {
                         Vector2 tile = pair.Key;
@@ -120,28 +156,28 @@ namespace Pathoschild.Stardew.ChestsAnywhere
                         // chests
                         if (obj is Chest chest && chest.playerChest.Value)
                         {
-                            chestNames.Add(chest.Name);
+                            chests.Add(new ChestPsuedoGameLocation(chest, pLoc));
+                            currentChestHash += (uint)chest.Name.GetHashCode();
                         }
                     }
                 }
             }
-            chestNames.Sort();
-            uint chestHash = (uint)chestNames.Aggregate((e, f) => { return e += f; }).GetHashCode();
-            this.LastUpdateTick = e.Ticks;
-            if (this.ChestLocationHash != chestHash)
-            {
-                XmlSerializer ser = new XmlSerializer(typeof(GameLocation), new Type[] { typeof(Horse), typeof(Cat), typeof(GreenSlime) });
-                MemoryStream ms = new MemoryStream();
-                List<byte[]> locations = new List<byte[]>();
 
-                foreach (var location in CommonHelper.GetLocations())
+            NetCollection<Chest> c = new NetCollection<Chest>();
+
+            XmlSerializer bf = new XmlSerializer(typeof(ChestPsuedoGameLocation));
+            MemoryStream ms = new MemoryStream();
+            List<byte[]> locations = new List<byte[]>();
+            if (this.ChestHash != currentChestHash)
+            {
+                this.ChestHash = currentChestHash;
+                foreach (var chest in chests)
                 {
-                    ser.Serialize(ms, location);
+                    bf.Serialize(ms, chest);
                     locations.Add(ms.ToArray());
                     ms = new MemoryStream();
                 }
                 this.Monitor.Log($"Sending Message", LogLevel.Trace);
-                this.ChestLocationHash = chestHash;
                 this.Helper.Multiplayer.SendMessage<List<byte[]>>(
                     locations,
                     "AllChestData",
@@ -334,7 +370,7 @@ namespace Pathoschild.Stardew.ChestsAnywhere
         private void NotifyAutomateOfChestUpdate(ManagedChest chest)
         {
             long hostId = Game1.MasterPlayer.UniqueMultiplayerID;
-            var message = new AutomateUpdateChestMessage { LocationName = chest.Location.Name, Tile = chest.Tile };
+            var message = new AutomateUpdateChestMessage { LocationName = chest.PsuedoLocation != null ? chest.PsuedoLocation.Name : chest.Location.Name, Tile = chest.Tile };
             this.Helper.Multiplayer.SendMessage(message, nameof(AutomateUpdateChestMessage), modIDs: new[] { "Pathoschild.Automate" }, playerIDs: new[] { hostId });
         }
 
