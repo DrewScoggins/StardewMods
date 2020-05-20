@@ -137,7 +137,7 @@ namespace Pathoschild.Stardew.ChestsAnywhere
                             SObject obj = pair.Value;
 
                             // chests
-                            if (obj is Chest chest && chest.playerChest.Value && chestNames.Add(chest.Name))
+                            if (obj is Chest chest && chest.playerChest.Value)
                             {
                                 yield return new ManagedChest(
                                     container: new ChestContainer(chest, context: chest, this.Reflection),

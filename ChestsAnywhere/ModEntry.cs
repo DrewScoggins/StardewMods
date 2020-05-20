@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Runtime;
 using System.Runtime.Serialization.Formatters.Binary;
 using System.Text;
@@ -58,6 +59,8 @@ namespace Pathoschild.Stardew.ChestsAnywhere
         private uint LastUpdateTick = 0;
         private uint ChestHash = 0;
         private long playerHash = 0;
+        private int trackedLocs = 0;
+        private bool haveAddedChests = false;
 
 
         /*********
@@ -102,10 +105,24 @@ namespace Pathoschild.Stardew.ChestsAnywhere
                     gameLocs.Add(pair);
                     foreach(var location in CommonHelper.GetLocations())
                     {
-                        if(location.Name == pair.PLoc.Name)
+                        if(location.Name == "Farm")
                         {
-                            location.Objects[pair.Chest.TileLocation] = pair.Chest;
-                            break;
+                            var fields = location.NetFields.NetFields.GetType().GetFields(BindingFlags.NonPublic | BindingFlags.Instance);
+                            object tt = fields[0].GetValue(location.NetFields.NetFields);
+                            int trackerIndex = ((List<INetSerializable>)tt).FindIndex(e => { if (e is NetString net) { return net.Value == "ChestTracker"; } else { return false; } });
+                            if (trackerIndex != -1)
+                            {
+                                foreach(var netChest in ((NetCollection<Chest>)((List<INetSerializable>)tt)[trackerIndex + 1]))
+                                {
+                                    if(netChest.Name == pair.Chest.Name
+                                        && netChest.TileLocation.X == pair.Chest.TileLocation.X
+                                        && netChest.TileLocation.Y == pair.Chest.TileLocation.Y)
+                                    {
+                                        pair.Chest = netChest;
+                                        break;
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -116,14 +133,16 @@ namespace Pathoschild.Stardew.ChestsAnywhere
         private void OnOneSecondUpdateTicked(object sender, OneSecondUpdateTickedEventArgs e)
         {
             //Way forward
-            Game1.netWorldState.Value.NetFields.AddField(yourCollection);
+            
             this.LastUpdateTick++;
             long checkPlayerHash = 0;
+            bool areClientsConnected = false;
             foreach(var player in this.Helper.Multiplayer.GetConnectedPlayers())
             {
+                areClientsConnected = true;
                 checkPlayerHash += player.PlayerID;
             }
-            if(this.playerHash == 0)
+            if(this.playerHash == 0 && areClientsConnected)
             {
                 this.playerHash = checkPlayerHash;
                 this.ChestHash = 0;
@@ -139,15 +158,14 @@ namespace Pathoschild.Stardew.ChestsAnywhere
             uint currentChestHash = 0;
             List<string> chestNames = new List<string>();
             List<ChestPsuedoGameLocation> chests = new List<ChestPsuedoGameLocation>();
+            NetCollection<Chest> c = new NetCollection<Chest>();
             if (!Context.IsWorldReady || !Context.IsMainPlayer)
                 return;
-            MemoryStream ms3 = new MemoryStream();
             foreach (var location in CommonHelper.GetLocations())
             {
                 PsuedoGameLocation pLoc = new PsuedoGameLocation(location);
                 if (location.Name != "BugLand" && location.Name != "DeepWoods")
                 {
-                    location.NetFields.AddField(new NetCollection<Chest>());
                     foreach(KeyValuePair <Vector2, SObject> pair in location.Objects.Pairs)
                     {
                         Vector2 tile = pair.Key;
@@ -156,6 +174,7 @@ namespace Pathoschild.Stardew.ChestsAnywhere
                         // chests
                         if (obj is Chest chest && chest.playerChest.Value)
                         {
+                            c.Add(chest);
                             chests.Add(new ChestPsuedoGameLocation(chest, pLoc));
                             currentChestHash += (uint)chest.Name.GetHashCode();
                         }
@@ -163,13 +182,41 @@ namespace Pathoschild.Stardew.ChestsAnywhere
                 }
             }
 
-            NetCollection<Chest> c = new NetCollection<Chest>();
-
+            if(!this.haveAddedChests)
+            {
+                this.haveAddedChests = true;
+                foreach (var location in CommonHelper.GetLocations())
+                {
+                    if (location.Name == "Farm")
+                    {
+                        location.NetFields.AddField(new NetString("ChestTracker"));
+                        location.NetFields.AddField(c);
+                    }
+                }
+            }
             XmlSerializer bf = new XmlSerializer(typeof(ChestPsuedoGameLocation));
             MemoryStream ms = new MemoryStream();
             List<byte[]> locations = new List<byte[]>();
             if (this.ChestHash != currentChestHash)
             {
+                foreach (var location in CommonHelper.GetLocations())
+                {
+                    if (location.Name == "Farm")
+                    {
+                        var fields = location.NetFields.NetFields.GetType().GetFields(BindingFlags.NonPublic | BindingFlags.Instance);
+                        object tt = fields[0].GetValue(location.NetFields.NetFields);
+                        int trackerIndex = ((List<INetSerializable>)tt).FindIndex(e => { if (e is NetString net) { return net.Value == "ChestTracker"; } else { return false; } });
+                        if(trackerIndex != -1)
+                        {
+                            ((NetCollection<Chest>)((List<INetSerializable>)tt)[trackerIndex + 1]).Clear();
+                            foreach (var netChest in c)
+                            {
+                                ((NetCollection<Chest>)((List<INetSerializable>)tt)[trackerIndex + 1]).Add(netChest);
+                            }
+                        }
+                        
+                    }
+                }
                 this.ChestHash = currentChestHash;
                 foreach (var chest in chests)
                 {
@@ -205,7 +252,9 @@ namespace Pathoschild.Stardew.ChestsAnywhere
 
             // show multiplayer limitations warning
             if (!Context.IsMainPlayer)
+            {
                 this.Monitor.Log("Multiplayer limitations: you can only access chests in your current location (since you're not the main player). This is due to limitations in the game's sync logic.", LogLevel.Info);
+            }
         }
 
         /// <summary>The method invoked when the interface has finished rendering.</summary>
@@ -238,7 +287,35 @@ namespace Pathoschild.Stardew.ChestsAnywhere
         /// <param name="e">The event arguments.</param>
         private void OnUpdateTicked(object sender, UpdateTickedEventArgs e)
         {
-            this.ChangeOverlayIfNeeded();
+            foreach (var location in CommonHelper.GetLocations())
+            {
+                if (location.Name == "Farm")
+                {
+                    if(!this.haveAddedChests)
+                    {
+                        this.haveAddedChests = true;
+                        var fields2 = location.NetFields.NetFields.GetType().GetFields(BindingFlags.NonPublic | BindingFlags.Instance);
+                        object tt2 = fields2[0].GetValue(location.NetFields.NetFields);
+                        var newNetFields = new List<INetSerializable>();
+                        foreach(var item in ((List<INetSerializable>)tt2))
+                        {
+                            newNetFields.Add(item);
+                        }
+                        newNetFields.Add(new NetString("ChestTracker"));
+                        newNetFields.Add(new NetCollection<Chest>());
+                        fields2[0].SetValue(location.NetFields.NetFields, newNetFields);
+                    }
+                    var fields = location.NetFields.NetFields.GetType().GetFields(BindingFlags.NonPublic | BindingFlags.Instance);
+                    object tt = fields[0].GetValue(location.NetFields.NetFields);
+                    if(((List<INetSerializable>)tt).Count != this.trackedLocs)
+                    {
+                        this.trackedLocs = ((List<INetSerializable>)tt).Count;
+                        this.Monitor.Log($"{this.trackedLocs}", LogLevel.Info);
+                    }
+                    
+                }
+            }
+                this.ChangeOverlayIfNeeded();
         }
 
         /// <summary>The method invoked when the player presses a button.</summary>
