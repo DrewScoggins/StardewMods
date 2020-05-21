@@ -112,16 +112,8 @@ namespace Pathoschild.Stardew.ChestsAnywhere
                             int trackerIndex = ((List<INetSerializable>)tt).FindIndex(e => { if (e is NetString net) { return net.Value == "ChestTracker"; } else { return false; } });
                             if (trackerIndex != -1)
                             {
-                                foreach(var netChest in ((NetCollection<Chest>)((List<INetSerializable>)tt)[trackerIndex + 1]))
-                                {
-                                    if(netChest.Name == pair.Chest.Name
-                                        && netChest.TileLocation.X == pair.Chest.TileLocation.X
-                                        && netChest.TileLocation.Y == pair.Chest.TileLocation.Y)
-                                    {
-                                        pair.Chest = netChest;
-                                        break;
-                                    }
-                                }
+                                ((NetCollection<Chest>)((List<INetSerializable>)tt)[trackerIndex + 1]).Add(pair.Chest);
+                                
                             }
                         }
                     }
